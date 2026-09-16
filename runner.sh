@@ -23,8 +23,15 @@ outputs:
     format: yolov8 transposed=1 w_scale=640 h_scale=640
 YAML
 
+echo 'Checando SyNAP Python package...'
+python3 - <<'PY'
+import pysynap
+print('pysynap:', pysynap.__file__)
+print('versao:', getattr(pysynap, 'version', 'desconhecida'))
+PY
+
 echo 'Iniciando compilacao SyNAP para SL1680...'
-synap convert --model model.onnx --target SL1680 --meta meta.yaml --out-dir /out
+python3 -m pysynap.scripts.synap_convert --model model.onnx --target SL1680 --meta meta.yaml --out-dir /out
 cp /out/model.synap /out/valorant_bestV2_SL1680.model
 cd /out
 echo 'COMPILACAO_CONCLUIDA'
