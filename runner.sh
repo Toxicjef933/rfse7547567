@@ -1,25 +1,35 @@
 #!/bin/sh
 set -eu
-echo '=== INSPECAO DA IMAGEM SYNAP ==='
-echo "PATH=$PATH"
-echo '--- python ---'
-which python3 || true
+mkdir -p /work /out
+cd /work
 python3 - <<'PY'
-import sys, os
-print('python:', sys.executable)
-print('sys.path:')
-for p in sys.path: print(' ', p)
+import os, urllib.request
+u=os.environ['MODEL_URL']
+print('Baixando ONNX...')
+urllib.request.urlretrieve(u, 'model.onnx')
+print('ONNX baixado:', os.path.getsize('model.onnx'), 'bytes')
 PY
+cat > meta.yaml <<'YAML'
+delegate: npu
+data_layout: default
+inputs:
+  - name: images
+    shape: [1, 3, 640, 640]
+    means: [0, 0, 0]
+    scale: 255
+    format: rgb keep_proportions=1
+outputs:
+  - name: output0
+    format: yolov8 transposed=1 w_scale=640 h_scale=640
+YAML
 
-echo '--- procurando executaveis/arquivos SyNAP ---'
-find / -maxdepth 6 \( -iname 'synap' -o -iname 'synap_convert*' -o -iname '*entrypoint*' -o -iname 'pysynap' \) 2>/dev/null | head -300 || true
+echo 'Checando compilador SyNAP...'
+python3 /opt/synap/toolkit/synap_convert.py --version
 
-echo '--- /usr/local/bin ---'
-ls -la /usr/local/bin 2>/dev/null | head -200 || true
-echo '--- /opt ---'
-find /opt -maxdepth 4 -type f 2>/dev/null | head -300 || true
-echo '--- /app /workspace /toolkit ---'
-find /app /workspace /toolkit -maxdepth 4 -type f 2>/dev/null | head -300 || true
-
-echo '=== FIM INSPECAO ==='
-sleep 120
+echo 'Iniciando compilacao SyNAP para SL1680...'
+python3 /opt/synap/toolkit/synap_convert.py --model /work/model.onnx --target SL1680 --meta /work/meta.yaml --out-dir /out --verbose
+cp /out/model.synap /out/valorant_bestV2_SL1680.model
+cd /out
+echo 'COMPILACAO_CONCLUIDA'
+ls -lah
+exec python3 -m http.server "${PORT:-8080}" --bind 0.0.0.0
