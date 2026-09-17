@@ -11,35 +11,57 @@ print('ONNX baixado:', os.path.getsize('model.onnx'), 'bytes')
 PY
 
 python3 - <<'PY'
-from rknn.api import RKNN
-import os, sys
+import onnx
+from onnx import TensorProto, AttributeProto, numpy_helper
 
-out='/out/valorant_bestV2_RK3588_FP.rknn'
-rknn = RKNN(verbose=True)
-print('Config RK3588...')
-ret = rknn.config(
-    mean_values=[[0,0,0]],
-    std_values=[[255,255,255]],
-    target_platform='rk3588'
-)
-if ret != 0:
-    raise SystemExit(f'config failed: {ret}')
-print('Load ONNX...')
-ret = rknn.load_onnx(model='/work/model.onnx')
-if ret != 0:
-    raise SystemExit(f'load_onnx failed: {ret}')
-print('Build RKNN FP...')
-ret = rknn.build(do_quantization=False)
-if ret != 0:
-    raise SystemExit(f'build failed: {ret}')
-print('Export RKNN...')
-ret = rknn.export_rknn(out)
-if ret != 0:
-    raise SystemExit(f'export failed: {ret}')
-rknn.release()
-print('RKNN_CONCLUIDO', out, os.path.getsize(out), 'bytes')
+p='/work/model.onnx'
+m=onnx.load(p)
+print('IR', m.ir_version, 'opsets', [(x.domain, x.version) for x in m.opset_import])
+print('metadata_props', [(x.key, x.value[:220]) for x in m.metadata_props])
+print('graph inputs', [(x.name, [d.dim_value or d.dim_param for d in x.type.tensor_type.shape.dim]) for x in m.graph.input])
+print('graph outputs', [(x.name, [d.dim_value or d.dim_param for d in x.type.tensor_type.shape.dim]) for x in m.graph.output])
+
+print('--- STRING INITIALIZERS ---')
+count=0
+for t in m.graph.initializer:
+    if t.data_type == TensorProto.STRING:
+        count += 1
+        vals=[v.decode('utf-8','replace') if isinstance(v,(bytes,bytearray)) else str(v) for v in t.string_data]
+        print('INIT', t.name, 'dims=', list(t.dims), 'vals=', vals[:5])
+print('string initializer count=', count)
+
+print('--- CONSTANT NODES WITH STRING TENSORS / STRINGS ---')
+count=0
+for n in m.graph.node:
+    for a in n.attribute:
+        if a.type == AttributeProto.TENSOR and a.t.data_type == TensorProto.STRING:
+            count += 1
+            vals=[v.decode('utf-8','replace') if isinstance(v,(bytes,bytearray)) else str(v) for v in a.t.string_data]
+            print('NODE_TENSOR_STRING', n.name, n.op_type, 'attr=', a.name, 'dims=', list(a.t.dims), 'vals=', vals[:5])
+        elif a.type == AttributeProto.STRING:
+            s=a.s.decode('utf-8','replace')
+            if len(s) >= 100:
+                print('LONG_STRING_ATTR', n.name, n.op_type, 'attr=', a.name, 'len=', len(s), 'repr=', repr(s[:240]))
+        elif a.type == AttributeProto.STRINGS:
+            vals=[x.decode('utf-8','replace') for x in a.strings]
+            print('STRINGS_ATTR', n.name, n.op_type, 'attr=', a.name, 'lens=', [len(x) for x in vals], 'vals=', vals[:5])
+print('string tensor constant count=', count)
+
+print('--- ALL CONSTANT VALUE DTYPES ---')
+from collections import Counter
+c=Counter()
+for n in m.graph.node:
+    if n.op_type == 'Constant':
+        for a in n.attribute:
+            if a.type == AttributeProto.TENSOR:
+                c[TensorProto.DataType.Name(a.t.data_type)] += 1
+print(dict(c))
+
+print('--- SUSPICIOUS 182-LENGTH TEXT ---')
+# Search serialized protobuf bytes for readable runs around length ~182.
+b=m.SerializeToString()
+import re
+for mat in re.finditer(rb'[\x20-\x7e]{170,195}', b):
+    s=mat.group().decode('ascii','replace')
+    print('ASCII_RUN', len(s), repr(s[:240]))
 PY
-
-cd /out
-ls -lah
-exec python3 -m http.server "${PORT:-8080}" --bind 0.0.0.0
