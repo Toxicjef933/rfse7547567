@@ -27,7 +27,8 @@ jobs:
           MODEL_URL: 'https://cdn.discordapp.com/attachments/1562737567256944750/1562737569236516925/exp-13.onnx?ex=6adbbd06&is=6ada6b86&hm=2cba33637f02352bea83a11a39ec58bec5cdb1b8dbdbaa9deae6f42935edd05c&'
           MODEL_NAME: exp-13.onnx
         run: |
-          mkdir -p /work /out
+          sudo mkdir -p /work /out
+          sudo chmod 777 /work /out
           curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/convert_defier_generic.py -o /work/convert.py
           python /work/convert.py
       - name: Upload RKNN artifact
