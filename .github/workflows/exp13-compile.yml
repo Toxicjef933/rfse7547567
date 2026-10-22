@@ -29,8 +29,12 @@ jobs:
         run: |
           sudo mkdir -p /work /out
           sudo chmod 777 /work /out
+          curl -fL --retry 2 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36" -H "Referer: https://discord.com/" "$MODEL_URL" -o /work/exp-13.onnx
+          test "$(stat -c%s /work/exp-13.onnx)" = "18955035"
+          echo "EXPECTED_HASH 0f002339e7bd2339786d84b276f6a179eb8835689bdf7032bc24c6d31fe158d3"
+          sha256sum /work/exp-13.onnx
           curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/convert_defier_generic.py -o /work/convert.py
-          python /work/convert.py
+          MODEL_URL=file:///work/exp-13.onnx python /work/convert.py
       - name: Upload RKNN artifact
         uses: actions/upload-artifact@v4
         with:
