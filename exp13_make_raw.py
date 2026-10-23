@@ -40,7 +40,9 @@ for mode in (6,9):
             raw=conv_names['cls'+str(scale)]
             reduceout=f'exp13_class_sum_{scale}'
             clipout=f'exp13_class_sum_clip_{scale}'
-            g.node.append(helper.make_node('ReduceSum',[raw], [reduceout], name=f'exp13_reduce_score_s{scale}',axes=[1],keepdims=1))
+            axes_name=f'exp13_reduce_axes_{scale}'
+            g.initializer.append(helper.make_tensor(axes_name, TensorProto.INT64,[1],[1]))
+            g.node.append(helper.make_node('ReduceSum',[raw,axes_name], [reduceout], name=f'exp13_reduce_score_s{scale}',keepdims=1))
             g.node.append(helper.make_node('Relu',[reduceout],[clipout],name=f'exp13_nonnegative_s{scale}'))
             g.output.append(helper.make_tensor_value_info(clipout,TensorProto.FLOAT,shapes['cls'+str(scale)]))
             outputs.append(clipout)
