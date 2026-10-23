@@ -1,0 +1,27 @@
+name: Inspect exp13 raw YOLO head
+on:
+  push:
+    paths: ['.github/workflows/exp13-inspect.yml']
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: |
+          pip install "onnx==1.16.1"
+      - name: Fetch and inspect ONNX graph
+        env:
+          MODEL_URL: 'https://cdn.discordapp.com/attachments/1562737567256944750/1562737569236516925/exp-13.onnx?ex=6adbbd06&is=6ada6b86&hm=2cba33637f02352bea83a11a39ec58bec5cdb1b8dbdbaa9deae6f42935edd05c&'
+        run: |
+          sudo mkdir -p /work
+          sudo chmod 777 /work
+          curl -fL --retry 2 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36" -H "Referer: https://discord.com/" "$MODEL_URL" -o /work/exp13_preloaded.onnx
+          echo "0f002339e7bd2339786d84b276f6a179eb8835689bdf7032bc24c6d31fe158d3  /work/exp13_preloaded.onnx" | sha256sum -c -
+          curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/sort_onnx_exp13.py -o /work/sort.py
+          python /work/sort.py
+          curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/inspect_exp13_head.py -o /work/inspect.py
+          python /work/inspect.py
