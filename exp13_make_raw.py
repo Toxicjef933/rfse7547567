@@ -34,7 +34,7 @@ for mode in (6,9):
     for scale in range(3):
         for k in ('reg','cls'):
             name=conv_names[k+str(scale)]
-            g.output.append(helper.make_tensor_value_info(name,TensorProto.FLOAT,shapes[k+str(scale)]))
+            g.output.append(helper.make_tensor_value_info(name,TensorProto.FLOAT16,shapes[k+str(scale)]))
             outputs.append(name)
         if mode==9:
             raw=conv_names['cls'+str(scale)]
@@ -44,7 +44,7 @@ for mode in (6,9):
             g.initializer.append(helper.make_tensor(axes_name, TensorProto.INT64,[1],[1]))
             g.node.append(helper.make_node('ReduceSum',[raw,axes_name], [reduceout], name=f'exp13_reduce_score_s{scale}',keepdims=1))
             g.node.append(helper.make_node('Relu',[reduceout],[clipout],name=f'exp13_nonnegative_s{scale}'))
-            g.output.append(helper.make_tensor_value_info(clipout,TensorProto.FLOAT,shapes['cls'+str(scale)]))
+            g.output.append(helper.make_tensor_value_info(clipout,TensorProto.FLOAT16,shapes['cls'+str(scale)]))
             outputs.append(clipout)
 
     required=set(outputs)
