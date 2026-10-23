@@ -1,0 +1,51 @@
+name: Compile exp13 RK3588 INT8 RAW head
+on:
+  push:
+    paths:
+      - '.github/workflows/exp13-raw-int8.yml'
+  workflow_dispatch:
+jobs:
+  convert:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install compile dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ca-certificates curl libglib2.0-0 libgl1 libgomp1
+          python -m pip install --upgrade pip wheel
+          python -m pip install 'setuptools==70.3.0'
+          python -m pip install 'numpy<=1.26.4' 'protobuf>=4.21.6,<=4.25.4' psutil ruamel.yaml scipy tqdm opencv-python-headless fast-histogram 'onnx==1.16.1' onnxruntime
+          python -m pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-deps 'rknn-toolkit2==2.3.2'
+      - name: Download and verify model
+        env:
+          MODEL_URL: 'https://cdn.discordapp.com/attachments/1562737567256944750/1562737569236516925/exp-13.onnx?ex=6adbbd06&is=6ada6b86&hm=2cba33637f02352bea83a11a39ec58bec5cdb1b8dbdbaa9deae6f42935edd05c&'
+        run: |
+          sudo mkdir -p /work /out
+          sudo chmod 777 /work /out
+          curl -fL --retry 2 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36" -H "Referer: https://discord.com/" "$MODEL_URL" -o /work/exp13_preloaded.onnx
+          echo "0f002339e7bd2339786d84b276f6a179eb8835689bdf7032bc24c6d31fe158d3  /work/exp13_preloaded.onnx" | sha256sum -c -
+          curl -fL --retry 2 "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip" -o /work/coco128.zip
+      - name: Sort nodes and create RAW six and nine ONNX
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/sort_onnx_exp13.py -o /work/sort.py
+          python /work/sort.py
+          curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/exp13_make_raw.py -o /work/make_raw.py
+          python /work/make_raw.py
+      - name: Compile calibrated INT8 models
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Toxicjef933/rfse7547567/main/exp13_compile_raw_int8.py -o /work/convert.py
+          python /work/convert.py
+      - name: Upload RAW-head INT8 models
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp-13_RK3588_INT8_RAW6_RAW9
+          path: |
+            /out/exp-13_RK3588_INT8_RAW6.rknn
+            /out/exp-13_RK3588_INT8_RAW9.rknn
+          retention-days: 7
+          if-no-files-found: error
