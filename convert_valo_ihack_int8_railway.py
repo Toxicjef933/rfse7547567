@@ -74,7 +74,9 @@ for side in (40,20,10):
             # The final head Conv may feed Concat instead of Reshape.
             # Match terminal cv2/cv3 head indices exactly and preserve original shape/type.
             branch='cv2' if channels==64 else 'cv3'
-            is_head=int(bool(re.search(r'/'+branch+r'\\.'+str((40,20,10).index(side))+r'\\.[^/]*\\.2/Conv
+            k=(40,20,10).index(side)
+            is_head=int(n.name.endswith(f'/{branch}.{k}/{branch}.{k}.2/Conv'))
+            matches.append((is_head,idx,n.name,output,tp(output)))
         if not matches:
             print('MISSING',side,channels,'possible',[(n.name,shp(n.output[0])) for n in g.node if n.op_type=='Conv' and n.output and shp(n.output[0])==[1,channels,side,side]][-12:],flush=True)
             raise RuntimeError(f'No Conv head found shape {[1,channels,side,side]}')
